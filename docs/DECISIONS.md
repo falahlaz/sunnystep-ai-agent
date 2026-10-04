@@ -62,10 +62,29 @@ Status: **accepted** (implemented), **proposed** (not yet built), **open**.
 ## D9. Medical questions are refused with a fixed message — accepted
 - A strong KB match does not unlock an answer (`medical with kb hit` test case). The business sells comfort footwear; a model saying a shoe "helps plantar fasciitis" is a health claim the company cannot make.
 
+## D10. Anthropic Go SDK, our own retry, no temperature — accepted
+- **Dependency:** `github.com/anthropics/anthropic-sdk-go` (first third-party dep). Justification: official typed client for the Messages API, as the PRD asks; hand-rolling HTTP would duplicate request/response types and error decoding for no control gain.
+- **Retry:** SDK retries disabled (`WithMaxRetries(0)`); `llm.Anthropic` retries exactly once on 429/5xx/timeout/network with 300–800ms jitter, never on other 4xx, never after the caller's context is done. 15s timeout per attempt. Rejected: SDK default (2 retries, so worst-case latency and retry count are not what the PRD states).
+- **Deviation from PRD §4.1 ("temperature 0"):** the default model `claude-sonnet-5-5` rejects non-default sampling parameters with a 400, so temperature is not sent. Variance is handled where it matters: structured output (`output_config.format` with a JSON schema) plus Go-side validation, and `--repeat 3` in the eval to measure flakiness. Effort is set to `low` (classification and short grounded drafts).
+- **Evidence:** `TestAnthropicRetries`, `TestAnthropicTimeoutRetriedOnce`, `TestAnthropicCallerCancelNotRetried`, `TestAnthropicRequestShape` (asserts no `temperature`, effort `low`, schema present) against an `httptest` server.
+
+## D11. Orchestrator reason codes live in the `policy` enum — accepted
+- `message_too_long`, `payment_data_in_chat`, `bad_order_id_format`, `classifier_failure`, `llm_unavailable`, `ungrounded_answer`, `action_claim`, `internal_error` are added as constants; `Decide` is unchanged. `policy.AllOutcomes()` lists every (route, reason) pair.
+- **Why:** one list for templates, metrics and tests. `TestDecideOutcomesListed` fails if `Decide` can return a pair missing from the list; `respond.TestEveryOutcomeHasTemplate` fails if a pair has no template. Mutation check: deleting the `llm_unavailable` template made the coverage test fail.
+
+## D12. Handoff tickets: JSONL file, redaction inside the sink — accepted (closes O3)
+- `handoff.Sink` implementations assign the ID, run `guard.RedactPII` on `Summary`, and drop `OrderID`/`Facts` when the customer is not verified. Doing it in the sink means no caller can forget. IDs continue across restarts (`T-0001`…).
+- Ticket-write failure: template without a ref (`respond` handoff-no-ref text never claims the request was logged).
+- **Evidence:** `TestJSONLSinkWritesRedactedTickets` (mutation: removing the redaction call failed it), `TestUnverifiedTicketDropsOrderData`.
+
+## D13. Session keeps a pending order ID — accepted
+- `Session.PendingOrderID` stores an order ID the customer gave without a valid email, so "SS-10003" on turn 1 and the email on turn 2 verifies without asking the model to re-extract the ID from history. Verification stays bound to one order (`Session.Verified(id)`).
+- `MemStore.Get` returns a copy; changes apply only on `Put`. 30-min idle TTL with injected clock.
+
 ---
 
 ## Open decisions
 - **O1. LLM provider and model** for intent classification and answer drafting.
-- **O2. Session state** (verification status, failure counter, conversation history): in-memory map vs. Redis. Leaning in-memory with an interface, since the prototype is single-process.
-- **O3. Handoff ticket sink:** JSONL file vs. stdout. Leaning JSONL so tests can assert on tickets.
+- ~~**O2. Session state**~~ → in-memory `session.Store` interface (D13).
+- ~~**O3. Handoff ticket sink**~~ → D12.
 - **O4. Payment data in chat:** `guard.LooksLikePaymentData` exists; decide whether to block the message from reaching the model at all (likely yes).

@@ -79,3 +79,27 @@ func TestParseIntent(t *testing.T) {
 		}
 	}
 }
+
+// Every Decision that Decide can return must be listed in AllOutcomes,
+// otherwise respond's template coverage test would not see it.
+func TestDecideOutcomesListed(t *testing.T) {
+	listed := map[Outcome]bool{}
+	for _, o := range AllOutcomes() {
+		listed[o] = true
+	}
+	intents := []Intent{IntentFAQ, IntentOrderStatus, IntentOrderAction, IntentMedical,
+		IntentComplaint, IntentHumanRequest, IntentUnclear, IntentOutOfScope, "bogus"}
+	cfg := DefaultConfig()
+	for _, in := range intents {
+		for _, score := range []float64{0, 10} {
+			for _, v := range []bool{false, true} {
+				for _, f := range []int{0, 5} {
+					d := Decide(cfg, Input{Intent: in, KBTopScore: score, OrderVerified: v, VerifyFailures: f})
+					if !listed[Outcome{d.Route, d.Reason}] {
+						t.Errorf("Decide produced %s/%s, not in AllOutcomes", d.Route, d.Reason)
+					}
+				}
+			}
+		}
+	}
+}

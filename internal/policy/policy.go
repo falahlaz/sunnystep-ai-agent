@@ -56,6 +56,53 @@ const (
 	ReasonUnknownIntent      Reason = "unknown_intent"
 )
 
+// Reasons set by the orchestrator, outside Decide: pre-checks before the
+// model is called, and failures after it. Kept in this enum so templates,
+// metrics and the coverage test iterate one list.
+const (
+	ReasonMessageTooLong    Reason = "message_too_long"
+	ReasonPaymentData       Reason = "payment_data_in_chat"
+	ReasonBadOrderIDFormat  Reason = "bad_order_id_format"
+	ReasonClassifierFailure Reason = "classifier_failure"
+	ReasonLLMUnavailable    Reason = "llm_unavailable"
+	ReasonUngroundedAnswer  Reason = "ungrounded_answer"
+	ReasonActionClaim       Reason = "action_claim"
+	ReasonInternalError     Reason = "internal_error"
+)
+
+// Outcome is a (route, reason) pair the system can produce.
+type Outcome struct {
+	Route  Route
+	Reason Reason
+}
+
+// AllOutcomes lists every (route, reason) pair produced by Decide or the
+// orchestrator. respond's coverage test requires a template for each.
+func AllOutcomes() []Outcome {
+	return []Outcome{
+		{RouteAnswer, ReasonGroundedFAQ},
+		{RouteAnswer, ReasonVerifiedOrder},
+		{RouteClarify, ReasonNeedVerification},
+		{RouteClarify, ReasonUnclear},
+		{RouteClarify, ReasonMessageTooLong},
+		{RouteClarify, ReasonBadOrderIDFormat},
+		{RouteRefuse, ReasonMedicalAdvice},
+		{RouteRefuse, ReasonOutOfScope},
+		{RouteRefuse, ReasonPaymentData},
+		{RouteEscalate, ReasonVerificationLimit},
+		{RouteEscalate, ReasonActionNeedsHuman},
+		{RouteEscalate, ReasonNoGrounding},
+		{RouteEscalate, ReasonComplaint},
+		{RouteEscalate, ReasonCustomerAskedHuman},
+		{RouteEscalate, ReasonUnknownIntent},
+		{RouteEscalate, ReasonClassifierFailure},
+		{RouteEscalate, ReasonLLMUnavailable},
+		{RouteEscalate, ReasonUngroundedAnswer},
+		{RouteEscalate, ReasonActionClaim},
+		{RouteEscalate, ReasonInternalError},
+	}
+}
+
 type Config struct {
 	// MinKBScore is the BM25 score below which a FAQ answer is not attempted.
 	// Calibrated on the sample KB: off-topic queries scored 2.2-2.7,
