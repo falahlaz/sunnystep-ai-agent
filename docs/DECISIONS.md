@@ -48,7 +48,7 @@ Status: **accepted** (implemented), **proposed** (not yet built), **open**.
 ## D6. Order verification = order ID + email, identical error for both failures — accepted
 - **Rejected:** order ID only (anyone with a receipt photo or a guessed ID sees the order); OTP (out of scope for a prototype).
 - **Why:** Order IDs are short and sequential (`SS-10001`); without a second factor they are enumerable. Returning the same error for "no such order" and "wrong email" prevents confirming which IDs exist.
-- **Proposed:** after 3 failed attempts in a session the policy escalates (`verification_attempts_exceeded`). Session-level counting is not built yet.
+- After 3 failed attempts in a session the policy escalates (`verification_attempts_exceeded`) and no further lookups run (D16).
 
 ## D7. The model sees a projection of the order, never the raw record — accepted
 - **Excluded from `orders.View`:** email, street address, full postal code (masked to last 2 digits), `internal_note`, `gift_message`.
@@ -81,10 +81,33 @@ Status: **accepted** (implemented), **proposed** (not yet built), **open**.
 - `Session.PendingOrderID` stores an order ID the customer gave without a valid email, so "SS-10003" on turn 1 and the email on turn 2 verifies without asking the model to re-extract the ID from history. Verification stays bound to one order (`Session.Verified(id)`).
 - `MemStore.Get` returns a copy; changes apply only on `Put`. 30-min idle TTL with injected clock.
 
+## D14. "Tools" are deterministic context injection, not model tool calls — accepted
+- **Chose:** on the `answer` route Go assembles the drafting context from `Decision.AllowedTools`: `search_kb` → this turn's retrieved chunks; `get_order` → the verified `orders.View` plus computed facts (`days_since_delivery`, `has_final_sale_items`). The model is never given callable tools. `tools_offered` in the turn record = `AllowedTools`.
+- **Rejected:** native `tool_use` loop. It would let the model choose when and with which arguments to fetch an order (e.g. a different order ID than the verified one), and adds a multi-call loop to test. Nothing in support needs the model to decide what to fetch.
+- **Evidence:** `TestVerifiedSessionFAQGetsNoOrderContext` (verified session, FAQ intent → no order in context; mutation that ignored the allowlist failed it), `TestToolInvariantsEndToEnd`, `TestInjectedGiftMessageNeverReachesModel`, `TestVerifiedOrderAThenOrderB`.
+
+## D15. Mixed intents classify as the more restrictive one — accepted
+- Order in the classifier prompt: medical > order_action > complaint > human_request > order_status > faq. "Where is my order and I want a refund" → `order_action` → escalate. Cost: the status half is not answered; the human handles both.
+- A message that only supplies an order ID/email continues the previous request's intent (prompt rule; history of ≤6 turns is sent).
+
+## D16. Attempt limit stops lookups, not just answers — accepted (closes D6 "proposed")
+- After `MaxVerifyFailures` failed lookups in a session, `Store.Lookup` is no longer called for that session. Without this, the policy escalated but a correct guess on attempt 10 still verified the session (found while writing the agent; the PRD flow did not cover it).
+- Turns are serialised per session (64 striped mutexes) so concurrent requests cannot lose a failure increment.
+- **Evidence:** `TestWrongEmailThreeTimesEscalates` (4th turn with the correct email still escalates), `TestConcurrentWrongEmailsCountedExactly`. Mutations: removing the lookup block → both fail (counter reached 10); removing the session lock → counter lost increments (1–2 instead of 3) under `-race -count=3`.
+- **Known limitation:** the counter is per session; a client that rotates session IDs gets 3 tries each. A per-order or per-client rate limit is out of scope for the prototype.
+
+## D17. Messages blocked before the model are also kept out of history — accepted (closes O4)
+- Payment-data and too-long messages are not sent to the model, and session history stores a placeholder instead (`[message withheld: contained payment details]`), because history is replayed to the classifier and drafter on later turns. The turn record has no message text for payment-data turns.
+- **Evidence:** `TestPaymentDataNeverSentToModel` checks the next turn's requests do not contain the card number; the mutation that stored the raw message failed it.
+
+## D18. Draft validation failures escalate, not retry — accepted
+- Malformed JSON, missing/unknown citations or >1,200 chars → escalate `ungrounded_answer` with the failure kind in the turn record (`malformed`, `no_citation`, `unknown_citation`, `too_long`). Rationale per PRD §4.5: a retry hides the failure rate; escalation shows in metrics.
+- Classifier output is different: one retry, because a malformed label carries no customer-visible content and the retry is cheap.
+
 ---
 
 ## Open decisions
 - **O1. LLM provider and model** for intent classification and answer drafting.
 - ~~**O2. Session state**~~ → in-memory `session.Store` interface (D13).
 - ~~**O3. Handoff ticket sink**~~ → D12.
-- **O4. Payment data in chat:** `guard.LooksLikePaymentData` exists; decide whether to block the message from reaching the model at all (likely yes).
+- ~~**O4. Payment data in chat**~~ → blocked before the model and kept out of history (D17).
