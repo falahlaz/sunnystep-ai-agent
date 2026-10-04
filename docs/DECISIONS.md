@@ -162,7 +162,12 @@ Status: **accepted** (implemented), **proposed** (not yet built), **open**.
 ---
 
 ## Open decisions
-- **O1. LLM provider and model** for intent classification and answer drafting.
+- ~~**O1. LLM provider and model**~~ → Claude API, `claude-sonnet-5-5` for both calls, configurable via `LLM_MODEL` (D10).
 - ~~**O2. Session state**~~ → in-memory `session.Store` interface (D13).
 - ~~**O3. Handoff ticket sink**~~ → D12.
 - ~~**O4. Payment data in chat**~~ → blocked before the model and kept out of history (D17).
+
+## PRD open questions (§8)
+- **Q1. Cheaper model for classification?** Not decided. Needs real-model latency/cost numbers from the eval; the code already allows it (one `llm.Client` per call site would be a small change in `agent.New`).
+- **Q2. FAQ answers referencing the verified order?** Not done. An FAQ turn gets only `search_kb`, so the drafter sees no order data even in a verified session; `TestVerifiedSessionFAQGetsNoOrderContext` enforces this. Allowing it means adding computed facts (not the order view) to the FAQ allowlist in `policy.Decide`, which changes I2's scope and should be a recorded decision, not a drive-by.
+- **Q3. Proactive final-sale warning?** Partly. On `order_status` the drafter receives `has_final_sale_items` as a computed fact; return requests escalate (D3) and the ticket carries the flag for the human. The agent does not volunteer it on FAQ turns (follows from Q2).

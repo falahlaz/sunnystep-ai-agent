@@ -3,15 +3,25 @@
 Customer-support agent for a fictional footwear store ("Stridewell"). All
 products, policies, customers and orders are invented.
 
-> **Status:** control layer, orchestrator, CLI/HTTP interface, observability
-> and eval harness done. Real-model eval run pending.
+> **Status:** prototype complete. The committed eval reports are from the
+> offline provider; real-model runs are pending (see "Known limitations").
+
+## Setup
+
+Requires Go 1.24+. No other services.
+
+```sh
+git clone <repo> && cd <repo>
+go test ./...                      # all unit tests use a fake model, no key needed
+LLM_PROVIDER=fake go run ./cmd/agent chat   # works offline (keyword rules, not a model)
+```
+
+For the real model, copy `.env.example` values into your shell
+(`ANTHROPIC_API_KEY`, optionally `LLM_MODEL`; default `claude-sonnet-5-5`).
 
 ## Run
 
-Requires Go 1.24+.
-
 ```sh
-go test ./...                      # all unit tests use a fake model
 
 export ANTHROPIC_API_KEY=...       # real model (default claude-sonnet-5-5, override with LLM_MODEL)
 go run ./cmd/agent chat            # terminal chat; turn logs go to var/chat.log
@@ -141,5 +151,37 @@ Counters at `GET /debug/vars`: `turns_total`, `route_total{route}`,
 | `reason_total{verification_attempts_exceeded}` | Order-ID enumeration attempts. | spike vs baseline; check session IDs in logs |
 | `reason_total{no_kb_grounding}` share | Questions the KB cannot answer, or retrieval threshold too strict (see D5). | review weekly, not paged |
 
-The five technical judgment questions will be answered here once the eval
-results exist.
+## Testing evidence
+
+| What | Where |
+|---|---|
+| Unit tests (fake model only), incl. `-race` | `go test -race ./...` |
+| Policy invariants enumerated (intent × verification × score × failures) | `internal/policy` `TestToolInvariants`, `TestDecideOutcomesListed` |
+| End-to-end invariants with the real KB/orders and a scripted model | `internal/agent` (gift-message injection never reaches the model, card data never reaches it even via history, attempt limit cannot be bypassed, non-answer routes never draft) |
+| Fuzzing `Agent.Turn` (random customer text × random model output) | `go test -run '^$' -fuzz=FuzzTurn -fuzztime=30s ./internal/agent` (≈166k execs, no panics) |
+| Mutation checks (tests have teeth) | listed per decision in `docs/DECISIONS.md` and per session in `AI_USAGE.md` |
+| Eval, 40 conversations, failures kept | `eval/results/*/report.md` |
+| One defect found by the eval → fix → regression test | README "Defect found" above, D24 |
+
+## Assumptions
+
+- **Identity = order ID + checkout email.** Good enough for order status in a prototype; real deployments would add OTP or a logged-in session (D6).
+- **Single process.** Sessions are in memory (30-min idle TTL) and lost on restart; tickets go to a local JSONL file. Both sit behind interfaces (`session.Store`, `handoff.Sink`).
+- **English only**, one store, SGD, Singapore/Malaysia shipping, as in the KB.
+- **All write actions go to a human** (refund, return, cancel, exchange, address change, replacement), even when the policy looks mechanical (D3). The agent explains policy and hands over pre-computed facts.
+- **The KB is the only source of truth** for FAQ answers; a question it does not cover escalates rather than being answered from model knowledge.
+- **"Now" is the server clock** for eligibility facts; tests and eval pin it to 2026-10-04 12:00 SGT.
+
+## Known limitations
+
+- **Real-model eval not yet run.** The committed reports use the offline provider, which says nothing about model quality. Run `go run ./cmd/eval --provider anthropic --repeat 3` to produce the real numbers (D24 lists the before/after commits).
+- **Retrieval is keyword BM25 with a crude stemmer.** Synonyms are missed ("my shoes are too small" does not reach sizing content and escalates). The threshold separates the eval questions with a small margin (3.29 vs 2.71, D24); new phrasings may fall on the wrong side. Failure is safe (escalation), not wrong answers.
+- **Attempt limit is per session.** Rotating session IDs gives 3 more tries each; a per-order or per-client limit is out of scope (D16).
+- **`ClaimsAction` is regex-based** and will miss paraphrased promises. It is a backstop; the agent has no write tools at all (D19).
+- **No temperature control** on the default model (it rejects non-default sampling); variance is measured with `--repeat` instead (D10).
+- **Mixed-intent messages lose the answerable half**: "where is my order and I want a refund" escalates as a whole (D15).
+- **No auth, rate limiting or TLS** on the HTTP server; it is a local demo interface.
+
+## Technical judgment questions
+
+_To be added._
