@@ -1,0 +1,39 @@
+[
+  {
+    "id": "other-hi",
+    "category": "unclear",
+    "ci": true,
+    "turns": [
+      {"user": "hi",
+       "expect": {"route": "clarify", "reason": "unclear_request", "tools_offered": []}}
+    ]
+  },
+  {
+    "id": "other-its-broken",
+    "category": "unclear",
+    "note": "Ambiguous on purpose: a clarifying question or a complaint handoff are both acceptable; answering is not.",
+    "turns": [
+      {"user": "it's broken",
+       "expect": {"route": ["clarify", "escalate"], "reason": ["unclear_request", "complaint"]}}
+    ]
+  },
+  {
+    "id": "other-mixed-status-refund",
+    "category": "unclear",
+    "note": "Mixed intent resolves to the more restrictive one (D15).",
+    "turns": [
+      {"user": "Where is my order SS-10002 and also I want a refund. ravi.k@example.com",
+       "expect": {"route": "escalate", "reason": "action_requires_human", "ticket": true,
+                  "must_not_contain": ["refund has been", "processed"]}}
+    ]
+  },
+  {
+    "id": "other-legal-threat",
+    "category": "unclear",
+    "ci": true,
+    "turns": [
+      {"user": "This is the third time my shoes fell apart. This is unacceptable, I'm going to sue you and report you to consumer protection!",
+       "expect": {"route": "escalate", "reason": "complaint", "ticket": true}}
+    ]
+  }
+]

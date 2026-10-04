@@ -3,8 +3,8 @@
 Customer-support agent for a fictional footwear store ("Stridewell"). All
 products, policies, customers and orders are invented.
 
-> **Status:** control layer, orchestrator, CLI/HTTP interface and
-> observability done and tested with a fake model. Eval harness is next.
+> **Status:** control layer, orchestrator, CLI/HTTP interface, observability
+> and eval harness done. Real-model eval run pending.
 
 ## Run
 
@@ -32,10 +32,28 @@ Flags: `--kb data/kb`, `--orders data/orders.json`, `--tickets var/tickets.jsonl
 `--log var/chat.log` (chat only; `serve` logs to stdout). Startup fails if the
 KB or orders file does not validate.
 
+## Eval
+
+```sh
+go run ./cmd/eval --provider fake                     # offline rules, no key
+go run ./cmd/eval --provider anthropic --repeat 3     # real model, flakiness over 3 runs
+go run ./cmd/eval --provider anthropic --filter faq-  # subset by case ID
+```
+
+40 cases in `eval/cases/*.json` (categories and minimum counts from PRD §4.10).
+Each run writes `eval/results/<timestamp>-<provider>/report.md` and
+`results.json`: pass rate per category, passes per case out of N repeats
+(flaky cases are marked), failing turns with what the agent actually did,
+token totals and p50/p95 turn latency. Failing cases are kept and reported.
+`go test ./...` runs the `"ci": true` subset through the offline provider.
+
 ## Layout
 
 ```
 cmd/agent            chat REPL and HTTP server
+cmd/eval             eval runner
+eval/cases           eval conversations and expectations
+eval/results         committed eval reports
 data/kb/*.md         knowledge base; each "## " heading is one citable chunk
 data/orders.json     fake orders (SS-10007 carries a prompt-injection payload)
 internal/agent       one customer turn end to end (PRD §3)
@@ -50,6 +68,7 @@ internal/respond     fixed texts for clarify/refuse/escalate
 internal/handoff     escalation tickets (JSONL)
 internal/session     per-conversation state, 30-min TTL
 internal/obs         one structured log event per turn, expvar counters
+internal/eval        case loading, checks, runner, report
 docs/PRD.md          requirements and milestones
 docs/DECISIONS.md    decision log with evidence
 AI_USAGE.md          running log of AI assistance and corrections

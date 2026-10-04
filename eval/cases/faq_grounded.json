@@ -1,0 +1,77 @@
+[
+  {
+    "id": "faq-return-window",
+    "category": "faq_grounded",
+    "turns": [
+      {"user": "How many days do I have to return my shoes?",
+       "expect": {"route": "answer", "reason": "grounded_faq",
+                  "citations_include": ["returns#return-window"], "must_contain": ["30"],
+                  "tools_offered": ["search_kb"]}}
+    ]
+  },
+  {
+    "id": "faq-comfort-guarantee",
+    "category": "faq_grounded",
+    "turns": [
+      {"user": "Can I return shoes I have already worn a little?",
+       "expect": {"route": "answer", "reason": "grounded_faq",
+                  "citations_include": ["returns#comfort-guarantee"]}}
+    ]
+  },
+  {
+    "id": "faq-shipping-fee",
+    "category": "faq_grounded",
+    "turns": [
+      {"user": "Is shipping free?",
+       "expect": {"route": "answer", "reason": "grounded_faq",
+                  "citations_include": ["shipping#shipping-fees"], "must_contain": ["80"]}}
+    ]
+  },
+  {
+    "id": "faq-refund-timing",
+    "category": "faq_grounded",
+    "note": "BM25 scores this 2.83 against returns#refund-timing, below the 3.0 threshold (found in M3). Expected to fail until retrieval is fixed.",
+    "turns": [
+      {"user": "How long does a refund take?",
+       "expect": {"route": "answer", "reason": "grounded_faq",
+                  "citations_include": ["returns#refund-timing"], "must_contain": ["10 business days"]}}
+    ]
+  },
+  {
+    "id": "faq-washing",
+    "category": "faq_grounded",
+    "turns": [
+      {"user": "Can I put my shoes in the washing machine?",
+       "expect": {"route": "answer", "reason": "grounded_faq",
+                  "citations_include": ["care#machine-washing"]}}
+    ]
+  },
+  {
+    "id": "faq-wide-feet",
+    "category": "faq_grounded",
+    "turns": [
+      {"user": "I have wide feet. Which models come in a wide fit?",
+       "expect": {"route": "answer", "reason": "grounded_faq",
+                  "citations_include": ["sizing#wide-feet"], "must_contain": ["Cloudwalk"]}}
+    ]
+  },
+  {
+    "id": "faq-size-exchange",
+    "category": "faq_grounded",
+    "turns": [
+      {"user": "Can I exchange shoes for a different size if they don't fit?",
+       "expect": {"route": "answer", "reason": "grounded_faq",
+                  "citations_include": ["sizing#size-exchanges"],
+                  "must_not_contain": ["has been arranged", "I've arranged"]}}
+    ]
+  },
+  {
+    "id": "faq-warranty",
+    "category": "faq_grounded",
+    "turns": [
+      {"user": "What does the warranty cover and for how long?",
+       "expect": {"route": "answer", "reason": "grounded_faq",
+                  "citations_include": ["warranty#manufacturing-defects"], "must_contain": ["6 months"]}}
+    ]
+  }
+]

@@ -1,0 +1,55 @@
+[
+  {
+    "id": "faq-ungrounded-store-hours",
+    "category": "faq_ungrounded",
+    "note": "BM25 matched 'hours' to '24 hours' in shipping#tracking-a-parcel (D5). Must not invent opening hours.",
+    "turns": [
+      {"user": "What are your store opening hours?",
+       "expect": {"route": ["escalate", "refuse"],
+                  "reason": ["no_kb_grounding", "ungrounded_answer", "out_of_scope"],
+                  "must_not_contain": ["9am", "10am", "9:00", "10:00", "open from", "open daily"]}}
+    ]
+  },
+  {
+    "id": "faq-ungrounded-ship-japan",
+    "category": "faq_ungrounded",
+    "note": "KB only lists Singapore and Malaysia. 'ship' matched 'ships' (D5).",
+    "turns": [
+      {"user": "Do you ship to Japan?",
+       "expect": {"route": ["escalate", "refuse"],
+                  "reason": ["no_kb_grounding", "ungrounded_answer", "out_of_scope"],
+                  "must_not_contain": ["we ship to japan", "yes, we"]}}
+    ]
+  },
+  {
+    "id": "faq-ungrounded-bags",
+    "category": "faq_ungrounded",
+    "ci": true,
+    "turns": [
+      {"user": "Do you sell bags?",
+       "expect": {"route": ["escalate", "refuse"],
+                  "reason": ["no_kb_grounding", "ungrounded_answer", "out_of_scope"],
+                  "must_not_contain": ["yes, we"]}}
+    ]
+  },
+  {
+    "id": "faq-ungrounded-gift-cards",
+    "category": "faq_ungrounded",
+    "turns": [
+      {"user": "Do you sell gift cards?",
+       "expect": {"route": ["escalate", "refuse"],
+                  "reason": ["no_kb_grounding", "ungrounded_answer", "out_of_scope"],
+                  "must_not_contain": ["yes, we", "gift cards are available"]}}
+    ]
+  },
+  {
+    "id": "faq-ungrounded-discount-codes",
+    "category": "faq_ungrounded",
+    "turns": [
+      {"user": "Do you have any discount codes?",
+       "expect": {"route": ["escalate", "refuse"],
+                  "reason": ["no_kb_grounding", "ungrounded_answer", "out_of_scope"],
+                  "must_not_contain": ["use code", "% off"]}}
+    ]
+  }
+]

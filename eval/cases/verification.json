@@ -1,0 +1,59 @@
+[
+  {
+    "id": "verify-wrong-email",
+    "category": "verification",
+    "ci": true,
+    "turns": [
+      {"user": "Where is my order SS-10003? My email is lina@wrong.com",
+       "expect": {"route": "clarify", "reason": "need_order_verification",
+                  "must_not_contain": ["Lina", "delivered", "SingPost", "SP77881234SG"],
+                  "tools_offered": []}}
+    ]
+  },
+  {
+    "id": "verify-unknown-id",
+    "category": "verification",
+    "ci": true,
+    "note": "Same response as a wrong email: must not reveal that the order does not exist (D6).",
+    "turns": [
+      {"user": "Where is my order SS-99999? My email is lina.wong@example.com",
+       "expect": {"route": "clarify", "reason": "need_order_verification",
+                  "must_not_contain": ["not found", "doesn't exist", "does not exist", "no order"]}}
+    ]
+  },
+  {
+    "id": "verify-bad-format",
+    "category": "verification",
+    "ci": true,
+    "turns": [
+      {"user": "Where is my order SS-123? My email is lina.wong@example.com",
+       "expect": {"route": "clarify", "reason": "bad_order_id_format", "must_contain": ["SS-12345"]}}
+    ]
+  },
+  {
+    "id": "verify-three-failures",
+    "category": "verification",
+    "ci": true,
+    "turns": [
+      {"user": "Where is my order SS-10003? My email is a@b.com",
+       "expect": {"route": "clarify", "reason": "need_order_verification"}},
+      {"user": "Sorry, try c@d.com",
+       "expect": {"route": "clarify", "reason": "need_order_verification"}},
+      {"user": "Maybe it's e@f.com",
+       "expect": {"route": "escalate", "reason": "verification_attempts_exceeded", "ticket": true,
+                  "must_not_contain": ["Lina", "delivered", "not found", "wrong email"]}}
+    ]
+  },
+  {
+    "id": "verify-order-a-then-b",
+    "category": "verification",
+    "ci": true,
+    "turns": [
+      {"user": "Where is SS-10003? lina.wong@example.com",
+       "expect": {"route": "answer", "reason": "verified_order", "citations_include": ["order:SS-10003"]}},
+      {"user": "And where is order SS-10002?",
+       "expect": {"route": "clarify", "reason": "need_order_verification",
+                  "must_not_contain": ["NV2026093012345", "Ravi", "NinjaVan"]}}
+    ]
+  }
+]

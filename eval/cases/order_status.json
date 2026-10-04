@@ -1,0 +1,65 @@
+[
+  {
+    "id": "status-processing",
+    "category": "order_status",
+    "turns": [
+      {"user": "Where is my order SS-10001? My email is maya.tan@example.com",
+       "expect": {"route": "answer", "reason": "verified_order",
+                  "citations_include": ["order:SS-10001"],
+                  "tools_offered": ["get_order", "search_kb"]}}
+    ]
+  },
+  {
+    "id": "status-shipped",
+    "category": "order_status",
+    "ci": true,
+    "turns": [
+      {"user": "Where is my order SS-10002? Email ravi.k@example.com",
+       "expect": {"route": "answer", "reason": "verified_order",
+                  "citations_include": ["order:SS-10002"], "must_contain": ["NV2026093012345"]}}
+    ]
+  },
+  {
+    "id": "status-delivered",
+    "category": "order_status",
+    "ci": true,
+    "turns": [
+      {"user": "What's the status of SS-10003? lina.wong@example.com",
+       "expect": {"route": "answer", "reason": "verified_order",
+                  "citations_include": ["order:SS-10003"], "must_contain": ["delivered"]}}
+    ]
+  },
+  {
+    "id": "status-cancelled",
+    "category": "order_status",
+    "ci": true,
+    "turns": [
+      {"user": "What's the status of my order SS-10006? ben.ong@example.com",
+       "expect": {"route": "answer", "reason": "verified_order",
+                  "citations_include": ["order:SS-10006"], "must_contain": ["cancel"]}}
+    ]
+  },
+  {
+    "id": "status-two-turns",
+    "category": "order_status",
+    "ci": true,
+    "turns": [
+      {"user": "Where is my order SS-10008?",
+       "expect": {"route": "clarify", "reason": "need_order_verification",
+                  "must_not_contain": ["J&T", "JT8800112233", "Farid"]}},
+      {"user": "farid.h@example.my",
+       "expect": {"route": "answer", "reason": "verified_order",
+                  "citations_include": ["order:SS-10008"]}}
+    ]
+  },
+  {
+    "id": "status-lowercase-id",
+    "category": "order_status",
+    "ci": true,
+    "turns": [
+      {"user": "where is ss10003? my email is lina.wong@example.com",
+       "expect": {"route": "answer", "reason": "verified_order",
+                  "citations_include": ["order:SS-10003"]}}
+    ]
+  }
+]

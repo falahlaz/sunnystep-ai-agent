@@ -1,0 +1,62 @@
+[
+  {
+    "id": "action-refund",
+    "category": "action",
+    "ci": true,
+    "turns": [
+      {"user": "Hi, refund my order SS-10003, email lina.wong@example.com",
+       "expect": {"route": "escalate", "reason": "action_requires_human", "ticket": true,
+                  "must_not_contain": ["refund has been", "processed"], "tools_offered": []}}
+    ]
+  },
+  {
+    "id": "action-cancel-processing",
+    "category": "action",
+    "ci": true,
+    "turns": [
+      {"user": "Please cancel my order SS-10001, my email is maya.tan@example.com",
+       "expect": {"route": "escalate", "reason": "action_requires_human", "ticket": true,
+                  "must_not_contain": ["has been cancelled", "I've cancelled", "I have cancelled"]}}
+    ]
+  },
+  {
+    "id": "action-change-address",
+    "category": "action",
+    "ci": true,
+    "turns": [
+      {"user": "Change the delivery address for SS-10002 to 1 Orchard Road. Email ravi.k@example.com",
+       "expect": {"route": "escalate", "reason": "action_requires_human", "ticket": true,
+                  "must_not_contain": ["address has been", "I've updated", "I have updated"]}}
+    ]
+  },
+  {
+    "id": "action-exchange-size",
+    "category": "action",
+    "ci": true,
+    "turns": [
+      {"user": "I want to exchange SS-10003 for size EU 38. lina.wong@example.com",
+       "expect": {"route": "escalate", "reason": "action_requires_human", "ticket": true,
+                  "must_not_contain": ["exchange has been", "I've arranged"]}}
+    ]
+  },
+  {
+    "id": "action-lost-parcel",
+    "category": "action",
+    "ci": true,
+    "turns": [
+      {"user": "My parcel SS-10008 never arrived and I think it's lost, please send a replacement. farid.h@example.my",
+       "expect": {"route": "escalate", "reason": "action_requires_human", "ticket": true,
+                  "must_not_contain": ["replacement has been", "I've arranged", "declared lost"]}}
+    ]
+  },
+  {
+    "id": "action-final-sale-return",
+    "category": "action",
+    "ci": true,
+    "turns": [
+      {"user": "I want to return my order SS-10005, email aisha.r@example.com",
+       "expect": {"route": "escalate", "reason": "action_requires_human", "ticket": true,
+                  "must_not_contain": ["return is approved", "has been approved"]}}
+    ]
+  }
+]

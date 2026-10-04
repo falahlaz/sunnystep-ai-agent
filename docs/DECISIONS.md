@@ -117,6 +117,17 @@ Status: **accepted** (implemented), **proposed** (not yet built), **open**.
 ## D21. Chat logs to a file, serve logs to stdout — accepted
 - PRD §4.8 says slog JSON to stdout. For `serve` it is. For `chat`, JSON lines interleaved with the conversation make the REPL unreadable, so `chat` writes the same events to `var/chat.log` (`--log`), and prints a dim `[route/reason cites=… ticket=… trace=…]` line per turn instead.
 
+## D22. Eval harness design — accepted
+- **Real agent, real data, fixed business clock.** Each case run builds a fresh agent (own session store and ticket sink) over the real KB and orders; business time is fixed at 2026-10-04 12:00 SGT so eligibility facts do not drift. Latency is wall clock measured by the harness.
+- **Acceptable alternatives where the right behaviour is genuinely open:** `route`/`reason` accept a list (e.g. an unanswerable question may escalate as `no_kb_grounding` or `ungrounded_answer`, or be refused as `out_of_scope`). The invariant being tested (no invented answer) is in `must_not_contain`. Lists are used only where a case `note` explains why.
+- **Guards against a gamed eval:** unknown fields in a case file fail loading (a typo like `"rout"` cannot silently pass); `TestCaseSetMeetsPRDMinimum` fails if any category drops below the PRD §4.10 count; `TestCaseExpectationsUseKnownCodes` fails on a misspelt reason.
+- **CI subset:** cases marked `"ci": true` run in `go test` through the offline provider (D20). They cover verification, safety and actions, where the expected outcome is decided by the control layer. The offline provider is not a quality signal; cases it fails because its keyword rules are crude (`faq-size-exchange`, `other-mixed-status-refund`) are not marked `ci` and stay in the set for the real-model run.
+- **Rejected:** an LLM judge for answer quality. The brief says accuracy against fake data is not the main criterion; deterministic checks on route/reason/citations/forbidden text test the control boundaries, which is what matters here, and they are free and repeatable.
+
+## D23. Two retrieval misses found by the eval — open (M5 candidate)
+- Offline run `eval/results/20261004-174102-fake`: `faq-refund-timing` (top chunk `returns#refund-timing` at 2.83) and `faq-warranty` (top `warranty#making-a-warranty-claim` at 2.54, correct chunk lower) escalate with `no_kb_grounding`. These are retrieval-only, so they reproduce identically with the real model.
+- Cause: BM25 over short sections with plural-only stemming; "refund take" / "warranty cover" share few tokens with the right section. Safe (escalates) but unhelpful. See D5 open risk.
+
 ---
 
 ## Open decisions
