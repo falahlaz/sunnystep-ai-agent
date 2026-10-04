@@ -212,11 +212,23 @@ func tokenize(s string) []string {
 	return out
 }
 
-// stem is intentionally crude: only strips a plural "s". Good enough for a
-// small English corpus and trivially explainable; see DECISIONS.md.
+// stem is intentionally crude and explainable: strip one suffix ("-ing",
+// "-ed" or a plural "-s"), then collapse a trailing double consonant so
+// "shipping"/"shipped"/"ship" and "covered"/"cover" meet. Added after the
+// eval showed refund-timing and warranty questions missing the threshold
+// (DECISIONS.md D24). Not a real stemmer: "fitting" -> "fit" works,
+// "dries" -> "drie" does not.
 func stem(w string) string {
-	if len(w) > 3 && strings.HasSuffix(w, "s") && !strings.HasSuffix(w, "ss") {
-		return w[:len(w)-1]
+	switch {
+	case len(w) > 5 && strings.HasSuffix(w, "ing"):
+		w = w[:len(w)-3]
+	case len(w) > 4 && strings.HasSuffix(w, "ed"):
+		w = w[:len(w)-2]
+	case len(w) > 3 && strings.HasSuffix(w, "s") && !strings.HasSuffix(w, "ss"):
+		w = w[:len(w)-1]
+	}
+	if n := len(w); n > 3 && w[n-1] == w[n-2] && !strings.ContainsRune("lsz", rune(w[n-1])) {
+		w = w[:n-1]
 	}
 	return w
 }

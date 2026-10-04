@@ -47,6 +47,19 @@ Each run writes `eval/results/<timestamp>-<provider>/report.md` and
 token totals and p50/p95 turn latency. Failing cases are kept and reported.
 `go test ./...` runs the `"ci": true` subset through the offline provider.
 
+### Defect found by the eval and the fix (M5)
+
+The first eval run showed two FAQ questions the KB answers ("How long does a
+refund take?", "What does the warranty cover?") escalating as
+`no_kb_grounding`: their BM25 scores (2.83, 2.54) were below the 3.0
+threshold and inside the range of off-topic questions (2.40–2.71), so
+lowering the threshold would have let irrelevant chunks through. The fix
+was a slightly better stemmer ("-ing", "-ed", double consonants), which
+raised the grounded questions to ≥3.29 while off-topic ones stayed ≤2.71.
+`kb.TestThresholdSeparatesEvalQuestions` guards both sides. Offline
+before/after and the caveats are in `docs/DECISIONS.md` D24; real-model
+numbers are pending.
+
 ## Layout
 
 ```
