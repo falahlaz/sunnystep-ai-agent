@@ -104,6 +104,19 @@ Status: **accepted** (implemented), **proposed** (not yet built), **open**.
 - Malformed JSON, missing/unknown citations or >1,200 chars → escalate `ungrounded_answer` with the failure kind in the turn record (`malformed`, `no_citation`, `unknown_citation`, `too_long`). Rationale per PRD §4.5: a retry hides the failure rate; escalation shows in metrics.
 - Classifier output is different: one retry, because a malformed label carries no customer-visible content and the retry is cheap.
 
+## D19. `ClaimsAction`: narrow on form, not on verbs — accepted
+- A literal reading of the PRD pattern `refund (has been|is) (issued|processed|approved)` also flags policy text such as "a refund is issued once we receive the return", which would escalate faithful KB answers. Chose: perfect tense ("has been processed") always counts; present/past tense counts only with a definite subject ("your/the/this refund is approved"); first-person done or promised ("I've cancelled", "we'll refund") always counts. Curly apostrophes are normalised.
+- The check runs before the citation check, so an answer that both claims an action and cites badly is reported as `action_claim` (the more serious failure).
+- **Evidence:** `TestClaimsAction` (15 claims, 9 policy sentences that must pass), `TestKBTextIsNotAnActionClaim` (no KB chunk trips the guard), `TestActionClaimEscalates`.
+- **Known limitation:** regexes miss paraphrases ("all sorted, the money is on its way back to you"). The guard is a backstop; the main control is that the agent has no write tools at all (D2, D3).
+
+## D20. Offline provider for running without a key — accepted
+- `LLM_PROVIDER=fake` uses `internal/offline`: keyword rules for intent, extractive draft (first sentence of the first context entry, cited). It runs the real control layer end to end, so the README steps and the HTTP/REPL wiring can be checked from a fresh clone without credentials.
+- It is not used to claim anything about model quality; unit tests use the scripted `llm.Fake`, and eval quality numbers come from the real model.
+
+## D21. Chat logs to a file, serve logs to stdout — accepted
+- PRD §4.8 says slog JSON to stdout. For `serve` it is. For `chat`, JSON lines interleaved with the conversation make the REPL unreadable, so `chat` writes the same events to `var/chat.log` (`--log`), and prints a dim `[route/reason cites=… ticket=… trace=…]` line per turn instead.
+
 ---
 
 ## Open decisions

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/falahlaz/support-agent/internal/classify"
+	"github.com/falahlaz/support-agent/internal/guard"
 	"github.com/falahlaz/support-agent/internal/handoff"
 	"github.com/falahlaz/support-agent/internal/kb"
 	"github.com/falahlaz/support-agent/internal/llm"
@@ -529,5 +530,30 @@ func TestVerifiedSessionFAQGetsNoOrderContext(t *testing.T) {
 	expect(t, r, policy.RouteAnswer, policy.ReasonGroundedFAQ)
 	if sys := h.fake.Requests()[3].System; strings.Contains(sys, "[order:") {
 		t.Error("FAQ draft carried order data although get_order was not allowed")
+	}
+}
+
+func TestActionClaimEscalates(t *testing.T) {
+	h := newHarness(t, script([]string{cls("faq", "", "")},
+		draft("Done! Your refund has been processed.", "returns#return-window")))
+	r := h.agent.Turn(ctx, "s", "how many days do I have to return my shoes")
+	expect(t, r, policy.RouteEscalate, policy.ReasonActionClaim)
+	if strings.Contains(r.Text, "processed") {
+		t.Errorf("claim leaked to customer: %q", r.Text)
+	}
+	if h.recs.all()[0].ValidationFailure != "action_claim" {
+		t.Error("validation kind not recorded")
+	}
+}
+
+// Quoting the KB verbatim must never trip the action-claim guard.
+func TestKBTextIsNotAnActionClaim(t *testing.T) {
+	k, _ := data(t)
+	for _, q := range []string{"refund", "return", "cancel", "exchange", "address", "replacement", "order", "warranty"} {
+		for _, hit := range k.Search(q, 50) {
+			if guard.ClaimsAction(hit.Text) {
+				t.Errorf("KB chunk %s trips ClaimsAction", hit.ChunkID)
+			}
+		}
 	}
 }

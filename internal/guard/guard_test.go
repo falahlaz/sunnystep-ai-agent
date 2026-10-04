@@ -52,3 +52,44 @@ func TestLooksLikePaymentData(t *testing.T) {
 		t.Error("order id is not payment data")
 	}
 }
+
+func TestClaimsAction(t *testing.T) {
+	claims := []string{
+		"Your refund has been issued.",
+		"Good news: your refund is processed.",
+		"The refund was approved this morning.",
+		"Your return is approved!",
+		"I've cancelled your order.",
+		"I have changed the delivery address.",
+		"We have processed your refund.",
+		"I will refund you today.",
+		"We'll cancel it right away.",
+		"I'm going to process the exchange now.",
+		"Your order has been cancelled.",
+		"Your address was updated.",
+		"I’ve cancelled the order.", // curly apostrophe
+		"I've gone ahead and arranged a replacement.",
+		"Your replacement is on its way.",
+	}
+	for _, s := range claims {
+		if !ClaimsAction(s) {
+			t.Errorf("should flag: %q", s)
+		}
+	}
+	policy := []string{
+		"You can return unworn shoes within 30 days of delivery.",
+		"Refunds are processed within 5-7 business days after we receive the return.",
+		"Our customer care team handles refunds and cancellations.",
+		"Once your return is received, a refund is issued to the original payment method.",
+		"Your order was delivered on 17 September.",
+		"Your order has shipped with NinjaVan.",
+		"Orders can be cancelled before they ship.",
+		"To change your address, contact our team before the order ships.",
+		"I can't cancel orders, but our team can help.",
+	}
+	for _, s := range policy {
+		if ClaimsAction(s) {
+			t.Errorf("false positive: %q", s)
+		}
+	}
+}

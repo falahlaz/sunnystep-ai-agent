@@ -167,7 +167,12 @@ func parseDraft(m map[string]any) (string, []string, bool) {
 }
 
 // validateAnswer returns the failure kind, or "" if the answer may be sent.
+// The action-claim check runs first: an answer that claims a refund is the
+// worst failure, so it is the one reported when several apply.
 func validateAnswer(answer string, cites, retrieved []string, maxLen int) string {
+	if guard.ClaimsAction(answer) {
+		return "action_claim"
+	}
 	if err := guard.ValidateCitations(cites, retrieved); err != nil {
 		if errors.Is(err, guard.ErrNoCitation) {
 			return "no_citation"
