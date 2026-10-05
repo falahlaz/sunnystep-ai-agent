@@ -184,4 +184,75 @@ Counters at `GET /debug/vars`: `turns_total`, `route_total{route}`,
 
 ## Technical judgment questions
 
-_To be added._
+> Draft prepared with Claude from the decision log and test evidence.
+> Falah: review and rewrite in your own words before submitting.
+
+### 1. What did you decide was unsafe to automate, and why?
+
+- **Every write action**: refund, return approval, cancellation, exchange, address change, replacement for a lost parcel. They move money or goods, are hard to reverse, and depend on facts the system cannot see (shoe condition, whether the one-time comfort guarantee was already used, which lives in an internal note). The agent explains the policy, collects the order and reason, and hands a ticket with pre-computed facts to a human (D3). This holds even for a verified customer and even when the rule looks mechanical ("within 30 days").
+- **Choosing the route.** The model only labels intent; plain Go (`policy.Decide`) decides answer/clarify/refuse/escalate and which data the drafter may see (D2, D14). A prompt saying "don't refund" is a request; an allowlist is a control.
+- **Showing order data without a second factor.** Order IDs are sequential, so lookup needs ID + checkout email, errors are identical for "no such order" and "wrong email", and lookups stop after 3 failures in a session (D6, D16).
+- **Medical claims.** "Will these help my plantar fasciitis?" is refused with a fixed message even when the KB matches strongly (D9).
+- **Customer-facing text on non-answer routes.** Refusals, clarifications and handoffs are templates, so a jailbroken model cannot change what they say (I8).
+- **Date arithmetic and eligibility.** Days since delivery and the final-sale flag are computed in code and given to the model as facts (D8).
+
+### 2. What would most likely fail first in production, and how would you detect and contain it?
+
+**Retrieval.** BM25 with a crude stemmer misses paraphrases; the eval already found two KB-answerable questions below the threshold (D23–D24), and "my shoes are too small" still misses. The margin between the lowest grounded question (3.29) and the highest off-topic one (2.71) is small, so real traffic will land on both wrong sides.
+
+- *Containment:* a miss escalates (`no_kb_grounding`), it does not produce a wrong answer. A false hit still has to pass the citation check (the drafter may only cite chunks retrieved this turn) and the action-claim check, or it escalates.
+- *Detection:* `reason_total{no_kb_grounding}` share and `validation_failures_total{no_citation,unknown_citation}` (README "What to alert on"); every turn log carries `kb_top_score` and `kb_top_chunk`, so a weekly review of escalated questions with their scores shows which phrasings miss.
+
+**Second most likely: the model provider** (timeouts, 429s, a model update that changes output). Contained by one retry then `llm_unavailable` escalation and schema validation with fail-closed parsing; detected by `llm_errors_total` and `reason_total{classifier_failure}`.
+
+### 3. What important architecture or product choices did you make, what alternatives did you reject, and what evidence informed those decisions?
+
+| Choice | Rejected | Evidence |
+|---|---|---|
+| Model labels intent; deterministic policy picks route and data (D2) | Model chooses tools freely under a "don't refund" prompt | `TestToolInvariants` enumerates every intent × verification × score × failure count |
+| "Tools" are context injected by Go from the allowlist (D14) | Native tool-use loop | `TestVerifiedSessionFAQGetsNoOrderContext`, `TestVerifiedOrderAThenOrderB`; a mutation that ignored the allowlist was caught |
+| Model sees a projection of the order, never the raw record (D7) | Pass the order and instruct the model to ignore notes | SS-10007's gift message carries an injection payload; `TestInjectedGiftMessageNeverReachesModel` |
+| BM25 + citation check, threshold only a coarse filter (D4, D5) | Vector DB; trusting a score threshold | Score table in D5: off-topic queries scored 2.4–2.7 on keyword overlap |
+| Better stemmer instead of a lower threshold (D24) | Lower threshold | Misses (2.54, 2.83) sat inside the off-topic band; regression test checks both sides |
+| Validation failure escalates, no retry (D18) | Retry the draft | A retry hides the failure rate; escalation is counted |
+| Payment-like messages never reach the model or history (D17) | Redact and continue | History is replayed to the model later; test checks the next turn |
+| Attempt limit blocks lookups, not just answers (D16) | Escalate but keep looking up | Found a bypass while building it: a correct guess after the limit verified the session |
+| Own retry, no temperature on the default model (D10) | SDK default retries; temperature 0 as the PRD said | Model rejects non-default sampling; request-shape test |
+
+### 4. What did an AI tool suggest or generate that you rejected, corrected or improved? How did you identify the problem?
+
+Most code was generated with Claude (Claude Code); `AI_USAGE.md` logs each session.
+
+**How I directed it.** I fixed the scope and nine invariants in `docs/PRD.md` (§2) and gave the AI working rules in `CLAUDE.md`: never loosen an invariant to make a test pass, never delete an eval case, inject time, all unit tests on a fake model, stop after each milestone for review, record non-obvious choices with evidence. These rules are what turned the AI's first drafts into the corrections below; several of them were caught because a rule forced a check (mutation tests, measuring before fixing).
+
+**Problems in the AI's first drafts, caught by the checks those rules required:**
+
+- **Verification limit bypass.** The first orchestrator kept calling `Store.Lookup` after 3 failures, so a later correct guess still verified. Found while checking the flow against the anti-enumeration goal; fixed and covered by a test that tries the right email on turn 4 (D16).
+- **Payment data leaking through history.** The pre-check kept card numbers from the model on that turn, but history is replayed on the next. Found by tracing where session history goes; a test now inspects the next turn's request (D17).
+- **Invented support email** in the "ticket failed" message, not present in the KB. Removed.
+- **Action-claim regex** first flagged KB policy sentences ("a refund is issued once…") and missed curly apostrophes. Found by a test of policy sentences that must pass and by running the guard over every KB chunk (D19).
+- **PRD said temperature 0**; the default model rejects it. Found by checking current model docs before writing the client (D10).
+- **Tests checked for teeth:** mutations (removing redaction, the session lock, the lookup block, the allowlist) each made a test fail. Two mutations first failed to compile and proved nothing; they were redone.
+- **The M5 re-run moved a different case** (`safety-prompt-injection-user` started failing offline). Investigated instead of tuning the fake: it had passed only by accident before (D24).
+
+**What I rejected or changed myself after review:**
+
+_Falah: fill in from your "My review" notes in `AI_USAGE.md` (2–4 concrete items: what the AI produced, what was wrong, how you noticed, what you did)._
+
+### 5. What evidence makes you trust the system today, what remains unproven, and what would you improve first with one additional day?
+
+**Evidence today**
+- The control boundaries are enforced in code and tested: tool allowlist enumerated, order data only after ID + email, attempt limit with concurrency test under `-race`, gift-message injection never reaches the model, card data never reaches it (even via history), templates for every non-answer outcome (coverage test).
+- `Agent.Turn` fuzzed for 30s (≈166k executions) with random customer text and random model output: no panics, never an answer without a citation.
+- Mutation checks on the key guards; eval guards that stop the case set from being weakened.
+- Fresh clone → `go test ./...` → offline chat works.
+
+**Unproven**
+- **Real-model behaviour.** The committed eval reports use the offline keyword provider, which tests the control layer, not model quality. Classifier accuracy on boundary cases, drafter faithfulness, flakiness across repeats, latency and cost are not measured yet.
+- Retrieval on real customer phrasing (only 13 FAQ phrasings measured).
+- `ClaimsAction` against paraphrased promises.
+
+**First with one more day**
+1. Run the real-model eval with `--repeat 3`, read every failure, and fix or record each one.
+2. Measure query rewriting for retrieval (the classifier returns search terms in the same call) against the current stemmer, keeping the two-sided threshold test.
+3. Move the attempt limit from per-session to per-order so rotating session IDs does not reset it.
