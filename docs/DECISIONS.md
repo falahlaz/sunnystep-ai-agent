@@ -159,6 +159,12 @@ Status: **accepted** (implemented), **proposed** (not yet built), **open**.
 - **Real-model before/after:** pending (no API key in the build environment). To be added from `--provider anthropic --repeat 3` runs on commits `8fd4910` (before) and this one (after).
 - **Known limitation left:** "my shoes are too small" still scores 1.67 and escalates (D5); vocabulary mismatch needs synonyms or query rewriting, which would have to be measured with the real model.
 
+## D25. OpenAI as a second provider — accepted (deviation from PRD §4.1)
+- **Why:** the real-model eval could not be run with an Anthropic key in the build environment; an OpenAI key was available. Adding a provider behind the existing `llm.Client` interface needed no change to the agent, policy, guards or eval.
+- **How:** `llm.OpenAI` calls Chat Completions with `net/http` (no new dependency), structured output via `response_format: json_schema` with `strict: true` (both schemas already have `additionalProperties: false` and every property required). Same retry rule as D10 (one retry on 429/5xx/timeout/network, none on other 4xx), 15s per attempt, no temperature. `LLM_MODEL` is required for this provider so the model is always an explicit, reported choice.
+- **Caveat:** prompts were written for Claude. Eval numbers from an OpenAI model measure "these prompts with that model"; the control-layer cases (verification, actions, safety) are model-independent in what they check, while classifier and drafter quality may differ. Each report records provider and model.
+- **Evidence:** `TestOpenAIRetries`, `TestOpenAITimeoutRetriedOnce`, `TestOpenAISuccessAndRequestShape` (no temperature, strict schema, system message first), `TestOpenAIRefusal`, `TestOpenAIProviderNeedsModelAndKey`.
+
 ---
 
 ## Open decisions

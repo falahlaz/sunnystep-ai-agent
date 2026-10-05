@@ -4,7 +4,8 @@
 //	go run ./cmd/agent serve --addr :8080
 //
 // LLM_PROVIDER=anthropic (default) uses the Claude API (ANTHROPIC_API_KEY,
-// LLM_MODEL); LLM_PROVIDER=fake uses offline keyword rules.
+// LLM_MODEL); LLM_PROVIDER=openai uses Chat Completions (OPENAI_API_KEY,
+// LLM_MODEL required); LLM_PROVIDER=fake uses offline keyword rules.
 package main
 
 import (
@@ -124,11 +125,13 @@ func newLLM() (llm.Client, error) {
 			fmt.Fprintln(os.Stderr, "warning: ANTHROPIC_API_KEY is not set; the SDK will try other credential sources")
 		}
 		return llm.NewAnthropic(llm.AnthropicConfig{Model: os.Getenv("LLM_MODEL")}), nil
+	case "openai":
+		return llm.NewOpenAI(llm.OpenAIConfig{APIKey: os.Getenv("OPENAI_API_KEY"), Model: os.Getenv("LLM_MODEL")})
 	case "fake":
 		fmt.Fprintln(os.Stderr, "LLM_PROVIDER=fake: offline keyword rules, not a real model")
 		return offline.Client{}, nil
 	default:
-		return nil, fmt.Errorf("unknown LLM_PROVIDER %q (want anthropic or fake)", p)
+		return nil, fmt.Errorf("unknown LLM_PROVIDER %q (want anthropic, openai or fake)", p)
 	}
 }
 

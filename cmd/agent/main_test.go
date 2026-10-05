@@ -93,3 +93,17 @@ func TestChatREPL(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenAIProviderNeedsModelAndKey(t *testing.T) {
+	t.Setenv("LLM_PROVIDER", "openai")
+	t.Setenv("OPENAI_API_KEY", "")
+	t.Setenv("LLM_MODEL", "")
+	if _, err := newLLM(); err == nil {
+		t.Error("openai without key/model should fail at startup")
+	}
+	t.Setenv("OPENAI_API_KEY", "k")
+	t.Setenv("LLM_MODEL", "m")
+	if _, err := newLLM(); err != nil {
+		t.Errorf("openai with key and model: %v", err)
+	}
+}

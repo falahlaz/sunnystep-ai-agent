@@ -2,6 +2,7 @@
 //
 //	go run ./cmd/eval --provider fake
 //	go run ./cmd/eval --provider anthropic --repeat 3
+//	LLM_MODEL=<model> go run ./cmd/eval --provider openai --repeat 3
 //
 // Failing cases are reported, not hidden; the exit code is 0 unless the
 // run itself could not happen.
@@ -32,7 +33,7 @@ func main() {
 }
 
 func run() error {
-	provider := flag.String("provider", "fake", "fake (offline rules) or anthropic")
+	provider := flag.String("provider", "fake", "fake (offline rules), anthropic or openai")
 	repeat := flag.Int("repeat", 1, "runs per case (flakiness)")
 	parallel := flag.Int("parallel", 4, "cases run concurrently")
 	casesDir := flag.String("cases", "eval/cases", "case directory")
@@ -75,6 +76,13 @@ func run() error {
 			meta.Model = llm.DefaultModel
 		}
 		client = llm.NewAnthropic(llm.AnthropicConfig{Model: meta.Model})
+	case "openai":
+		meta.Model = os.Getenv("LLM_MODEL")
+		c, err := llm.NewOpenAI(llm.OpenAIConfig{APIKey: os.Getenv("OPENAI_API_KEY"), Model: meta.Model})
+		if err != nil {
+			return err
+		}
+		client = c
 	default:
 		return fmt.Errorf("unknown provider %q", *provider)
 	}

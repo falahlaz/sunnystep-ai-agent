@@ -16,8 +16,9 @@ go test ./...                      # all unit tests use a fake model, no key nee
 LLM_PROVIDER=fake go run ./cmd/agent chat   # works offline (keyword rules, not a model)
 ```
 
-For the real model, copy `.env.example` values into your shell
-(`ANTHROPIC_API_KEY`, optionally `LLM_MODEL`; default `claude-sonnet-5-5`).
+For a real model, copy `.env.example` values into your shell: either
+`ANTHROPIC_API_KEY` (default model `claude-sonnet-5-5`, override with `LLM_MODEL`)
+or `LLM_PROVIDER=openai` with `OPENAI_API_KEY` and `LLM_MODEL` (required).
 
 ## Run
 
@@ -28,6 +29,7 @@ go run ./cmd/agent chat            # terminal chat; turn logs go to var/chat.log
 go run ./cmd/agent serve --addr :8080
 
 LLM_PROVIDER=fake go run ./cmd/agent chat   # offline keyword rules, no API key
+LLM_PROVIDER=openai LLM_MODEL=<model> go run ./cmd/agent chat   # OpenAI (D25)
 ```
 
 HTTP:
@@ -48,6 +50,7 @@ KB or orders file does not validate.
 go run ./cmd/eval --provider fake                     # offline rules, no key
 go run ./cmd/eval --provider anthropic --repeat 3     # real model, flakiness over 3 runs
 go run ./cmd/eval --provider anthropic --filter faq-  # subset by case ID
+LLM_MODEL=<model> go run ./cmd/eval --provider openai --repeat 3
 ```
 
 40 cases in `eval/cases/*.json` (categories and minimum counts from PRD §4.10).
@@ -81,7 +84,7 @@ data/kb/*.md         knowledge base; each "## " heading is one citable chunk
 data/orders.json     fake orders (SS-10007 carries a prompt-injection payload)
 internal/agent       one customer turn end to end (PRD §3)
 internal/classify    model intent label + hints, validated, one retry
-internal/llm         Client interface, Claude API client, scripted fake
+internal/llm         Client interface, Claude and OpenAI clients, scripted fake
 internal/offline     keyword-rule stand-in for the model (LLM_PROVIDER=fake)
 internal/kb          BM25 retrieval over KB sections
 internal/orders      verified order lookup, model-safe View, date math
